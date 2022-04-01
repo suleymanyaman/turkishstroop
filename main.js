@@ -1,10 +1,11 @@
 PennController.ResetPrefix(null)
 
 Header(
-    newVar("ID").global()
+    newVar("ID").global(),
+    newVar("score",[]).global()
 ).log( "PP_ID" , getVar("ID"))
 
-Sequence("practice", "mainexp");
+Sequence("intro","instructions","practice","pagebreak");
 
 newTrial("intro",
     defaultText
@@ -24,27 +25,23 @@ newTrial("intro",
     getVar("ID").set(getTextInput("ppid"))
 );
 
-
-newTrial("pagebreak",
-    newText("<h3>Alıştırma aşamasını tamamladınız. Şimdi gerçek test başlayacak.<h3>")
-        .center()
+newTrial("instructions", 
+	newHtml("instruction_page","instructions.html")
+		.cssContainer({"margin-bottom":"1em"})
+		.print()
+	,
+	newButton("start_training","Alıştırmayı başlat")
+	.cssContainer({"margin-bottom":"2.5em"})
         .print()
-    ,
-    newButton("wait","Çalışmayı başlat")
-        .center()
-        .print()
-        .cssContainer({"margin-bottom":"2.5em"})
         .wait()
-)
-
+);
 
 Template("practice_trials.csv" , row =>
     newTrial("practice",
         newText("key_bindings", "1 = Mavi&nbsp;&nbsp;&nbsp; 2 = Yeşil&nbsp;&nbsp;&nbsp;3 = Sarı")
             .bold()
+			.cssContainer({"vertical-align":"top"})
             .print()
-        ,
-        newVar("correct_practice").global()
         ,
         newTimer("pre-trial", 500).start().wait()
         ,
@@ -61,23 +58,23 @@ Template("practice_trials.csv" , row =>
         newKey("prac_key","123")
             .log()
             .callback(getTimer("allotted_practice").stop())
-        
         ,
-        newText("positivefeedback","Correct!")
+        newText("positivefeedback","Doğru!")
         ,
-        newText("negativefeedback","Wrong!")
+        newText("negativefeedback","Yanlış!")
         ,
         getTimer("allotted_practice")
             .wait()
         ,
         getKey("prac_key")
-            .test.pressed(row.CorrectKey)
-            .success( 
+            .test.pressed(row.correctKey)
+            .success(
+                getVar("score").set(v=>[...v,true]),
                 getText("positivefeedback")
                     .center()
-                    .print() )
+                    .print())
             
-            .failure(
+            .failure(getVar("score").set(v=>[...v,false]),
                 getText("negativefeedback")
                     .center()
                     .print())
@@ -86,16 +83,33 @@ Template("practice_trials.csv" , row =>
 ));
 
 
+newTrial("pagebreak",
+    newVar("computed_accuracy").set(getVar("score")).set(v=>Math.round(v.filter(a=>a===true).length/v.length*100),
+    newText("accuracy").text(getVar("computed_accuracy")),
+    newText("Alıştırma doğruluk oranı: ")
+        .after(getText("accuracy"))
+        .print()
+    ,
+    newText("<h3> Alıştırma aşamasını tamamladınız. Eğer tuşların yerini öğrendiyseniz şimdi gerçek test başlayacak.<h3>")
+        .center()
+        .print()
+    ,
+    newButton("wait","Çalışmayı başlat")
+        .center()
+        .print()
+        .cssContainer({"margin-bottom":"2.5em"})
+        .wait()
+));
 
 
 
 
 Template("stroop_trials.csv" , row =>
     newTrial("mainexp",
-        newVar("correct").global()
-        ,
         newTimer("pre-trial", 500).start().wait()
         ,
+		newVar("RT").global().set(v=>Date.now())
+		,
         newText("target", row.Word)
             .color(row.FontColor)
             .center()
@@ -119,7 +133,10 @@ Template("stroop_trials.csv" , row =>
             .failure( 
                 getVar("correct").set(0)
                 )
+		,
+		getVar("RT").set(v=>Date.now()-v)
     )
     .log( "accuracy" , getVar("correct"))
+	.log("RT", getVar("RT")
     .log( "condition", row.Condition)
-); 
+)); 
